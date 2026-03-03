@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// ── Server-side Supabase client (uses env vars — keys never exposed to browser) ──
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Strip any HTML / script tags to prevent XSS stored in DB */
 function sanitise(value: string): string {
@@ -19,10 +13,16 @@ const MAX_PHONE = 20;
 const MAX_SERVICE = 80;
 const MAX_MSG = 1000;
 
-// ── POST /api/contact ────────────────────────────────────────────────────────
+// ── POST /api/contact ─────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
     try {
+        // Create client inside the handler — ensures env vars are available at runtime
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
         const body = await req.json();
         const { name, phone, service, message } = body;
 
@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
         ]);
 
         if (error) {
-            // Log full error server-side only — never expose details to the client
             console.error('[contact API] Supabase insert error:', error.message);
             return NextResponse.json(
                 { error: 'Could not save your message. Please try again.' },
@@ -68,9 +67,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        console.error('[contact API] Unexpected error:', message);
-        // Never expose internal details
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        console.error('[contact API] Unexpected error:', msg);
         return NextResponse.json(
             { error: 'Server error. Please try again later.' },
             { status: 500 }
